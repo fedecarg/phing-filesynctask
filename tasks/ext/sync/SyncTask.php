@@ -41,12 +41,6 @@ class SyncTask extends Task
 	protected $sourceDir;
 	
 	/**
-	 * Connection type.
-	 * @var boolean
-	 */
-	protected $isRemoteConnection = false;
-	
-	/**
 	 * Remote directory.
 	 * @var string
 	 */
@@ -83,9 +77,9 @@ class SyncTask extends Task
 	protected $excludeFile;
 	
 	/**
-	 * This option cerates a restore point so users can rollback to an existing 
-	 * restore point. The remote directory is copied to a new directory specified 
-	 * by the user. 
+	 * This option cerates a backup so users can rollback to an existing restore 
+	 * point. The remote directory is copied to a new directory specified by the 
+	 * user. 
 	 * 
 	 * @var string
 	 */
@@ -96,6 +90,12 @@ class SyncTask extends Task
 	 * @param string
 	 */
 	protected $options;
+	
+	/**
+	 * Connection type.
+	 * @var boolean
+	 */
+	protected $isRemoteConnection = false;
 	
 	/**
 	 * This option increases the amount of information you are given during the
@@ -129,92 +129,7 @@ class SyncTask extends Task
 	public function main() 
 	{
 		$this->setIsRemoteConnection();
-		$this->execute();
-	}
-	
-	/**
-	 * Executes the rsync program and returns the exit code.
-	 * 
-	 * @return int Return code from execution.
-	 * @throws BuildException
-	 */
-	public function execute() 
-	{		
-		if ($this->sourceDir === null) {
-			throw new BuildException('The sourcedir option is missing or undefined.');
-		}
-		if (! (is_dir($this->sourceDir) && is_readable($this->sourceDir))) {
-			throw new BuildException("Can't chdir to: " . $this->sourceDir);
-		} else if (! $this->isRemoteConnection) {
-			if (! (is_dir($this->remoteDir) && is_readable($this->remoteDir))) {
-				throw new BuildException("No such file or directory: " . $this->remoteDir);
-			}
-		}
-		if ($this->backupDir !== null && $this->backupDir == $this->remoteDir) {
-			throw new BuildException("Invalid backup directory: " . $this->backupDir);
-		}
-		
-		@chdir($this->sourceDir);
-		
-		$command = $this->getCommand();
-		print $this->getInformation($command);
-		
-		$output = array();
-		$return = null;
-		exec($command, $output, $return);
-		
-		foreach ($output as $line) {
-			print $line . "\r\n";
-		}
-
-		if ($return != 0) {
-			throw new BuildException('Task exited with code: ' . $return);
-		}
-
-		return $return;
-	}
-	
-	/**
-	 * Returns the rsync command and its command line options.
-	 *
-	 * @return string
-	 */
-	public function getCommand()
-	{
-		$options = '-raz';
-		if ($this->options !== null) {
-			$options = $this->options;
-		}
-		if ($this->verbose === true) { 
-			$options .= 'v';
-		}
-		if ($this->remoteShell !== null) {
-			$options .= ' -e ' . $this->remoteShell;
-		}
-		if ($this->listOnly === true) {
-			$options .= ' --list-only';
-		}
-		if ($this->delete === true) {
-			$options .= ' --delete';
-		}
-		if ($this->backupDir !== null) {
-			$options .= ' -b --backup-dir=' . $this->backupDir;
-		}
-		
-		$options .= ' --progress';
-		$this->setOptions($options);
-		
-		if ($this->isRemoteConnection) {
-			$options .= ' ' . $this->sourceDir;
-			$options .= ' ' . $this->remoteUser.'@'.$this->remoteHost.':'.$this->remoteDir;
-		} else {
-			$options .= $this->sourceDir . ' ' . $this->remoteDir;
-		} 
-		
-		escapeshellcmd($options);
-		$options .= ' 2>&1';
-		
-		return 'rsync ' . $options;
+		$this->executeCommand();
 	}
 	
 	/**
@@ -238,6 +153,139 @@ class SyncTask extends Task
 		} else {
 			$this->isRemoteConnection = false;
 		}
+	}
+	
+	/**
+	 * Executes the sync command and returns the exit code.
+	 * 
+	 * @return int Return code from execution.
+	 * @throws BuildException
+	 */
+	public function executeCommand() 
+	{		
+		if ($this->sourceDir === null) {
+			throw new BuildException('The sourcedir option is missing or undefined.');
+		} else if (! (is_dir($this->sourceDir) && is_readable($this->sourceDir))) {
+			throw new BuildException("Can't chdir to: " . $this->sourceDir);
+		}
+		
+		if ($this->isRemoteConnection === false) {
+			if (! (is_dir($this->remoteDir) && is_readable($this->remoteDir))) {
+				throw new BuildException("No such file or directory: " . $this->remoteDir);
+			}
+		} 
+		
+		if ($this->backupDir !== null && $this->backupDir == $this->remoteDir) {
+			throw new BuildException("Invalid backup directory: " . $this->backupDir);
+		}
+		
+		@chdir($this->sourceDir);
+		
+		$command = $this->getCommand();
+		print $this->getInformation();
+		
+		$output = array();
+		$return = null;
+		exec($command, $output, $return);
+		if ($return != 0) {
+			throw new BuildException('Task exited with code: ' . $return);
+		}
+		
+		foreach ($output as $line) {
+			print $line . "\r\n";
+		}
+
+		return $return;
+	}
+	
+	
+	/**
+	 * Returns the rsync command line options.
+	 *
+	 * @return string
+	 */
+	public function getCommand()
+	{
+		$options = '-raz';
+		if ($this->options !== null) {
+			$options = $this->options;
+		}
+		if ($this->verbose === true) { 
+			$options .= 'v';
+		}
+		if ($this->remoteShell !== null) {
+			$options .= ' -e ' . $this->remoteShell;
+		}
+		if ($this->listOnly === true) {
+			$options .= ' --list-only';
+		} else {
+			if ($this->delete === true) {
+				$options .= ' --delete-after --ignore-errors --force';
+			}
+		}
+		if ($this->backupDir !== null) {
+			$options .= ' -b --backup-dir=' . $this->backupDir;
+		}
+		$this->setOptions($options);
+		
+		if ($this->isRemoteConnection) {
+			$options .= ' ' . $this->sourceDir;
+			$options .= ' ' . $this->remoteUser.'@'.$this->remoteHost.':'.$this->remoteDir;
+		} else {
+			$options .= ' ' . $this->sourceDir . ' ' . $this->remoteDir;
+		} 
+		
+		escapeshellcmd($options);
+		$options .= ' 2>&1';
+		
+		return 'rsync ' . $options;
+	}
+	
+	/**
+	 * Returns information about the transfer.
+	 *
+	 * @return string
+	 */
+	public function getCommandInformation() 
+	{
+		if ($this->isRemoteConnection) {
+			$server = 'remote';
+			$destinationDir = $this->remoteUser.'@'.$this->remoteHost.':'.$this->remoteDir;
+		} else {
+			$server = 'local';
+			$destinationDir = $this->remoteDir;
+		}
+		
+		$backupDir = '(none)';
+		if ($this->backupDir !== null) {
+			if ($this->isRemoteConnection) {
+				$backupDir = $this->remoteUser.'@'.$this->remoteHost.':'.$this->backupDir;
+			} else {
+				$backupDir = $this->backupDir;
+			}
+		}
+		
+		$excludePatterns = '(none)';
+		if (file_exists($this->excludeFile)) {
+			$excludePatterns = @file_get_contents($this->excludeFile);
+		}
+		
+		$lf = "\r\n";
+		$dlf = $lf . $lf;
+		
+		$info  = 'Execute Command'                          . $lf;
+		$info .= '----------------------------------------' . $lf;
+		$info .= 'rsync ' . $this->options                  . $dlf;
+		$info .= 'Sync files to ' . $server . ' server'     . $lf;
+		$info .= '----------------------------------------' . $lf;
+		$info .= 'Source:        ' . $this->sourceDir       . $lf;
+		$info .= 'Destination:   ' . $destinationDir        . $lf;
+		$info .= 'Backup:        ' . $backupDir             . $dlf;
+		$info .= 'Exclude patterns'                         . $lf;
+		$info .= '----------------------------------------' . $lf;
+		$info .= $excludePatterns                           . $lf;
+
+		return $info;
 	}
 
 	/**
@@ -364,56 +412,12 @@ class SyncTask extends Task
 	}
 	
 	/**
-	 * Makes backups into hierarchy based in self::$backupDir
+	 * Makes backups into hierarchy based in $dir.
 	 * 
 	 * @param string dir
 	 */
 	public function setBackupDir($dir) 
 	{
 		$this->backupDir = $dir;	
-	}
-	
-	/**
-	 * Returns information about the transfer.
-	 *
-	 * @param string $command
-	 * @return string
-	 */
-	public function getInformation() 
-	{
-		if ($this->isRemoteConnection) {
-			$server = 'remote';
-			$destinationDir = $this->remoteUser.'@'.$this->remoteHost.':'.$this->remoteDir;
-		} else {
-			$server = 'local';
-			$destinationDir = $this->remoteDir;
-		}
-		
-		$backupDir = '(none)';
-		if ($this->backupDir !== null) {
-			$backupDir = $this->backupDir;
-		}
-		
-		$excludePatterns = '(none)';
-		if (file_exists($this->excludeFile)) {
-			$excludePatterns = @file_get_contents($this->excludeFile);
-		}
-		
-		$lf = "\r\n";
-		$dlf = $lf . $lf;
-		
-		$info  = 'Execute Command'                          . $lf;
-		$info .= '----------------------------------------' . $lf;
-		$info .= 'rsync ' . $this->options                  . $dlf;
-		$info .= 'Sync files to ' . $server . ' server'     . $lf;
-		$info .= '----------------------------------------' . $lf;
-		$info .= 'Source:        ' . $this->sourceDir       . $lf;
-		$info .= 'Destination:   ' . $destinationDir        . $lf;
-		$info .= 'Backup:        ' . $backupDir             . $dlf;
-		$info .= 'Exclude patterns'                         . $lf;
-		$info .= '----------------------------------------' . $lf;
-		$info .= $excludePatterns                           . $dlf;
-
-		return $info;
 	}
 }
