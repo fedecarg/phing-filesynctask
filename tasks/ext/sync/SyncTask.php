@@ -31,7 +31,7 @@ require_once "phing/Task.php";
  *
  *   1. For copying local files.
  *   2. For copying from the local machine to a remote machine using a remote shell program as 
- *       the transport (such as rsh or ssh).
+ *      the transport (such as rsh or ssh).
  *   3. For copying from a remote machine to the local machine using a remote shell program.
  *   4. For copying from a remote rsync server to the local machine.
  *   5. For copying from the local machine to a remote rsync server. 
