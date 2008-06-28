@@ -27,6 +27,16 @@ require_once "phing/Task.php";
  * sets of files across the network connection, using an efficient checksum-search 
  * algorithm.
  *
+ * There are six different ways of using SyncTask. They are:
+ *
+ *   1. For copying local files.
+ *   2. For copying from the local machine to a remote machine using a remote shell program as 
+ *       the transport (such as rsh or ssh).
+ *   3. For copying from a remote machine to the local machine using a remote shell program.
+ *   4. For copying from a remote rsync server to the local machine.
+ *   5. For copying from the local machine to a remote rsync server. 
+ *   6. For listing files on a remote machine.
+ *
  * @author    Federico Cargnelutti <fedecarg@gmail.com>
  * @author    Hans Lellelid <hans@xmpl.org> (Phing)
  * @version   $Revision$
@@ -47,7 +57,7 @@ class SyncTask extends Task
 	protected $remoteDir;
 
 	/**
-	 * Connection host name.
+	 * Remote host.
 	 * @var string
 	 */
 	protected $remoteHost;
@@ -71,13 +81,13 @@ class SyncTask extends Task
 	protected $remoteShell;
 	
 	/**
-	 * Excluded patterns.
+	 * Excluded patterns file.
 	 * @var string
 	 */
 	protected $excludeFile;
 	
 	/**
-	 * This option cerates a backup so users can rollback to an existing restore 
+	 * This option creates a backup so users can rollback to an existing restore 
 	 * point. The remote directory is copied to a new directory specified by the 
 	 * user. 
 	 * 
@@ -122,7 +132,7 @@ class SyncTask extends Task
 	protected $delete = false;
 	
 	/**
-	 * Phing's main method. Wraps the execute() method.
+	 * Phing's main method. Wraps the executeCommand() method.
 	 * 
 	 * @return void
 	 */
@@ -156,7 +166,7 @@ class SyncTask extends Task
 	}
 	
 	/**
-	 * Executes the sync command and returns the exit code.
+	 * Executes the rsync command and returns the exit code.
 	 * 
 	 * @return int Return code from execution.
 	 * @throws BuildException
@@ -242,11 +252,11 @@ class SyncTask extends Task
 	}
 	
 	/**
-	 * Returns information about the transfer.
+	 * Provides information about the command line options before the transfer.
 	 *
 	 * @return string
 	 */
-	public function getCommandInformation() 
+	public function getInformation() 
 	{
 		if ($this->isRemoteConnection) {
 			$server = 'remote';
