@@ -149,7 +149,7 @@ class FileSyncTask extends Task
 	 * @param null $phing Required by Phing when using setter methods.
 	 * @throws BuildException
 	 */
-	public function setIsRemoteConnection($phing=null)
+	protected function setIsRemoteConnection()
 	{
 		if ($this->remoteHost !== null) {
 			if ($this->destinationDir === null) {
@@ -283,7 +283,8 @@ class FileSyncTask extends Task
 		$lf = "\r\n";
 		$dlf = $lf . $lf;
 		
-		$info  = 'Execute Command'                          . $lf;
+		$info  = $lf;
+		$info .= 'Execute Command'                          . $lf;
 		$info .= '----------------------------------------' . $lf;
 		$info .= 'rsync ' . $this->options                  . $dlf;
 		$info .= 'Sync files to ' . $server . ' server'     . $lf;
