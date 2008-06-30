@@ -22,12 +22,12 @@
 require_once "phing/Task.php";
 
 /**
- * The SyncTask class copies files either to or from a remote host, or locally 
+ * The FileSyncTask class copies files either to or from a remote host, or locally 
  * on the current host. It allows rsync to transfer the differences between two 
  * sets of files across the network connection, using an efficient checksum-search 
  * algorithm.
  *
- * There are six different ways of using SyncTask. They are:
+ * There are six different ways of using FileSyncTask:
  *
  *   1. For copying local files.
  *   2. For copying from the local machine to a remote machine using a remote shell program as 
@@ -42,7 +42,7 @@ require_once "phing/Task.php";
  * @version   $Revision$
  * @package   phing.tasks.ext
  */
-class SyncTask extends Task 
+class FileSyncTask extends Task 
 {
 	/**
 	 * Source directory.
@@ -51,10 +51,10 @@ class SyncTask extends Task
 	protected $sourceDir;
 	
 	/**
-	 * Remote directory.
+	 * Destination directory.
 	 * @var string
 	 */
-	protected $remoteDir;
+	protected $destinationDir;
 
 	/**
 	 * Remote host.
@@ -152,12 +152,12 @@ class SyncTask extends Task
 	public function setIsRemoteConnection($phing=null)
 	{
 		if ($this->remoteHost !== null) {
-			if ($this->remoteDir === null) {
-				throw new BuildException('The remotedir option is missing or undefined.');
+			if ($this->destinationDir === null) {
+				throw new BuildException('The "remotedir" option is missing or undefined.');
 			} else if ($this->remoteUser === null) {
-				throw new BuildException('The remoteuser option is missing or undefined.');
+				throw new BuildException('The "remoteuser" option is missing or undefined.');
 			} else if ($this->remotePass !== null && $this->remoteShell !== null) {
-				throw new BuildException('The remotepass option is only useful when accessing an rsync daemon.');
+				throw new BuildException('The "remotepass" option is only useful when accessing an rsync daemon.');
 			}
 			$this->isRemoteConnection = true;
 		} else {
@@ -174,18 +174,18 @@ class SyncTask extends Task
 	public function executeCommand() 
 	{		
 		if ($this->sourceDir === null) {
-			throw new BuildException('The sourcedir option is missing or undefined.');
+			throw new BuildException('The "sourcedir" option is missing or undefined.');
 		} else if (! (is_dir($this->sourceDir) && is_readable($this->sourceDir))) {
-			throw new BuildException("Can't chdir to: " . $this->sourceDir);
+			throw new BuildException("No such file or directory: " . $this->sourceDir);
 		}
 		
 		if ($this->isRemoteConnection === false) {
-			if (! (is_dir($this->remoteDir) && is_readable($this->remoteDir))) {
-				throw new BuildException("No such file or directory: " . $this->remoteDir);
+			if (! (is_dir($this->destinationDir) && is_readable($this->destinationDir))) {
+				throw new BuildException("No such file or directory: " . $this->destinationDir);
 			}
 		} 
 		
-		if ($this->backupDir !== null && $this->backupDir == $this->remoteDir) {
+		if ($this->backupDir !== null && $this->backupDir == $this->destinationDir) {
 			throw new BuildException("Invalid backup directory: " . $this->backupDir);
 		}
 		
@@ -240,9 +240,9 @@ class SyncTask extends Task
 		
 		if ($this->isRemoteConnection) {
 			$options .= ' ' . $this->sourceDir;
-			$options .= ' ' . $this->remoteUser.'@'.$this->remoteHost.':'.$this->remoteDir;
+			$options .= ' ' . $this->remoteUser.'@'.$this->remoteHost.':'.$this->destinationDir;
 		} else {
-			$options .= ' ' . $this->sourceDir . ' ' . $this->remoteDir;
+			$options .= ' ' . $this->sourceDir . ' ' . $this->destinationDir;
 		} 
 		
 		escapeshellcmd($options);
@@ -260,10 +260,10 @@ class SyncTask extends Task
 	{
 		if ($this->isRemoteConnection) {
 			$server = 'remote';
-			$destinationDir = $this->remoteUser.'@'.$this->remoteHost.':'.$this->remoteDir;
+			$destinationDir = $this->remoteUser.'@'.$this->remoteHost.':'.$this->destinationDir;
 		} else {
 			$server = 'local';
-			$destinationDir = $this->remoteDir;
+			$destinationDir = $this->destinationDir;
 		}
 		
 		$backupDir = '(none)';
@@ -319,14 +319,14 @@ class SyncTask extends Task
 	}
 	
 	/**
-	 * Sets the remote directory. If the option remotehost is not included in 
-	 * the build.xml file, rsync will look for a local directory instead. 
+	 * Sets the destination directory. If the option remotehost is not included 
+	 * in the build.xml file, rsync will point to a local directory instead. 
 	 * 
 	 * @param string $dir
 	 */
-	public function setRemoteDir($dir) 
+	public function setDestinationDir($dir) 
 	{
-		$this->remoteDir = $dir;
+		$this->destinationDir = $dir;
 	}
 
 	/**
