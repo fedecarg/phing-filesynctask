@@ -22,10 +22,10 @@
 require_once "phing/Task.php";
 
 /**
- * The FileSyncTask class copies files either to or from a remote host, or locally 
- * on the current host. It allows rsync to transfer the differences between two 
- * sets of files across the network connection, using an efficient checksum-search 
- * algorithm.
+ * FileSyncTask is a Phing extension for Unix systems which synchronizes files 
+ * and directories from one location to another while minimizing data transfer. 
+ * FileSyncTask can copy or display directory contents and copy files, 
+ * optionally using compression and recursion.
  *
  * There are six different ways of using FileSyncTask:
  *
