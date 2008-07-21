@@ -22,23 +22,21 @@
 require_once "phing/Task.php";
 
 /**
- * FileSyncTask is a Phing extension for Unix systems which synchronizes files 
- * and directories from one location to another while minimizing data transfer. 
- * FileSyncTask can copy or display directory contents and copy files, 
- * optionally using compression and recursion.
+ * The FileSyncTask class copies files either to or from a remote host, or locally 
+ * on the current host. It allows rsync to transfer the differences between two 
+ * sets of files across the network connection, using an efficient checksum-search 
+ * algorithm.
  *
- * There are six different ways of using FileSyncTask:
+ * There are 4 different ways of using FileSyncTask:
  *
  *   1. For copying local files.
- *   2. For copying from the local machine to a remote machine using a remote shell program as 
- *      the transport (such as rsh or ssh).
- *   3. For copying from a remote machine to the local machine using a remote shell program.
- *   4. For copying from a remote rsync server to the local machine.
- *   5. For copying from the local machine to a remote rsync server. 
- *   6. For listing files on a remote machine.
+ *   2. For copying from the local machine to a remote machine using a remote 
+ *      shell program as the transport (ssh).
+ *   3. For copying from a remote machine to the local machine using a remote 
+ *      shell program.
+ *   4. For listing files on a remote machine.
  *
  * @author    Federico Cargnelutti <fedecarg@gmail.com>
- * @author    Hans Lellelid <hans@xmpl.org> (Phing)
  * @version   $Revision$
  * @package   phing.tasks.ext
  */
@@ -138,31 +136,7 @@ class FileSyncTask extends Task
 	 */
 	public function main() 
 	{
-		$this->setIsRemoteConnection();
 		$this->executeCommand();
-	}
-	
-	/**
-	 * Sets the remote self::$isRemoteConnection to true if the remotehost 
-	 * option is defined.
-	 *
-	 * @param null $phing Required by Phing when using setter methods.
-	 * @throws BuildException
-	 */
-	protected function setIsRemoteConnection()
-	{
-		if ($this->remoteHost !== null) {
-			if ($this->destinationDir === null) {
-				throw new BuildException('The "remotedir" option is missing or undefined.');
-			} else if ($this->remoteUser === null) {
-				throw new BuildException('The "remoteuser" option is missing or undefined.');
-			} else if ($this->remotePass !== null && $this->remoteShell !== null) {
-				throw new BuildException('The "remotepass" option is only useful when accessing an rsync daemon.');
-			}
-			$this->isRemoteConnection = true;
-		} else {
-			$this->isRemoteConnection = false;
-		}
 	}
 	
 	/**
@@ -174,22 +148,33 @@ class FileSyncTask extends Task
 	public function executeCommand() 
 	{		
 		if ($this->sourceDir === null) {
-			throw new BuildException('The "sourcedir" option is missing or undefined.');
-		} else if (! (is_dir($this->sourceDir) && is_readable($this->sourceDir))) {
-			throw new BuildException("No such file or directory: " . $this->sourceDir);
+			throw new BuildException('The "sourcedir" attribute is missing or undefined.');
+		} else if ($this->destinationDir === null) {
+			throw new BuildException('The "destinationdir" attribute is missing or undefined.');
 		}
 		
-		if ($this->isRemoteConnection === false) {
+		if (strpos($this->destinationDir, '@')) {
+			$this->setIsRemoteConnection(true);
+		} else {
 			if (! (is_dir($this->destinationDir) && is_readable($this->destinationDir))) {
 				throw new BuildException("No such file or directory: " . $this->destinationDir);
 			}
-		} 
+		}
+		
+		if (strpos($this->sourceDir, '@')) {
+			if ($this->isRemoteConnection) {
+				throw new BuildException('Cannot set both source and destination remote directories.');
+			}
+			$this->setIsRemoteConnection(true);
+		} else {
+			if (! (is_dir($this->sourceDir) && is_readable($this->sourceDir))) {
+				throw new BuildException('No such file or directory: ' . $this->sourceDir);
+			}
+		}
 		
 		if ($this->backupDir !== null && $this->backupDir == $this->destinationDir) {
 			throw new BuildException("Invalid backup directory: " . $this->backupDir);
 		}
-		
-		@chdir($this->sourceDir);
 		
 		$command = $this->getCommand();
 		print $this->getInformation();
@@ -198,14 +183,13 @@ class FileSyncTask extends Task
 		$return = null;
 		exec($command, $output, $return);
 		if ($return != 0) {
-			throw new BuildException('Task exited with code: ' . $return);
+			$this->log('Task exited with code: ' . $return, Project::MSG_INFO);
+			return false;
+		} else {
+			foreach ($output as $line) {
+				print $line . "\r\n";
+			}
 		}
-		
-		foreach ($output as $line) {
-			print $line . "\r\n";
-		}
-
-		return $return;
 	}
 	
 	
@@ -238,12 +222,7 @@ class FileSyncTask extends Task
 		}
 		$this->setOptions($options);
 		
-		if ($this->isRemoteConnection) {
-			$options .= ' ' . $this->sourceDir;
-			$options .= ' ' . $this->remoteUser.'@'.$this->remoteHost.':'.$this->destinationDir;
-		} else {
-			$options .= ' ' . $this->sourceDir . ' ' . $this->destinationDir;
-		} 
+		$options .= ' ' . $this->sourceDir . ' ' . $this->destinationDir;
 		
 		escapeshellcmd($options);
 		$options .= ' 2>&1';
@@ -258,22 +237,8 @@ class FileSyncTask extends Task
 	 */
 	public function getInformation() 
 	{
-		if ($this->isRemoteConnection) {
-			$server = 'remote';
-			$destinationDir = $this->remoteUser.'@'.$this->remoteHost.':'.$this->destinationDir;
-		} else {
-			$server = 'local';
-			$destinationDir = $this->destinationDir;
-		}
-		
-		$backupDir = '(none)';
-		if ($this->backupDir !== null) {
-			if ($this->isRemoteConnection) {
-				$backupDir = $this->remoteUser.'@'.$this->remoteHost.':'.$this->backupDir;
-			} else {
-				$backupDir = $this->backupDir;
-			}
-		}
+		$server = ($this->isRemoteConnection) ? 'remote' : 'local';
+		$backupDir = ($this->backupDir !== null) ? $this->backupDir : '(none)';
 		
 		$excludePatterns = '(none)';
 		if (file_exists($this->excludeFile)) {
@@ -290,7 +255,7 @@ class FileSyncTask extends Task
 		$info .= 'Sync files to ' . $server . ' server'     . $lf;
 		$info .= '----------------------------------------' . $lf;
 		$info .= 'Source:        ' . $this->sourceDir       . $lf;
-		$info .= 'Destination:   ' . $destinationDir        . $lf;
+		$info .= 'Destination:   ' . $this->destinationDir  . $lf;
 		$info .= 'Backup:        ' . $backupDir             . $dlf;
 		$info .= 'Exclude patterns'                         . $lf;
 		$info .= '----------------------------------------' . $lf;
@@ -298,7 +263,18 @@ class FileSyncTask extends Task
 
 		return $info;
 	}
-
+	
+	/**
+	 * Sets the self::$isRemoteConnection property.
+	 *
+	 * @param boolean $isRemote
+	 * @return void
+	 */
+	protected function setIsRemoteConnection($isRemote)
+	{		
+		$this->isRemoteConnection = $isRemote;
+	}
+	
 	/**
 	 * Sets the source directory.
 	 * 
