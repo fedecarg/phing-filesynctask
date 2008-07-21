@@ -163,7 +163,7 @@ class FileSyncTask extends Task
 		
 		if (strpos($this->sourceDir, '@')) {
 			if ($this->isRemoteConnection) {
-				throw new BuildException('Cannot set both source and destination remote directories.');
+				throw new BuildException('The source and destination cannot both be remote.');
 			}
 			$this->setIsRemoteConnection(true);
 		} else {
