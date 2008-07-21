@@ -184,11 +184,12 @@ class FileSyncTask extends Task
 		exec($command, $output, $return);
 		if ($return != 0) {
 			$this->log('Task exited with code: ' . $return, Project::MSG_INFO);
-			return false;
+			return 1;
 		} else {
 			foreach ($output as $line) {
 				print $line . "\r\n";
 			}
+			return 0;
 		}
 	}
 	
