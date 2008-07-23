@@ -184,6 +184,7 @@ class FileSyncTask extends Task
 		exec($command, $output, $return);
 		if ($return != 0) {
 			$this->log('Task exited with code: ' . $return, Project::MSG_INFO);
+			$this->log($command);
 			return 1;
 		} else {
 			foreach ($output as $line) {
@@ -221,6 +222,10 @@ class FileSyncTask extends Task
 		if ($this->backupDir !== null) {
 			$options .= ' -b --backup-dir=' . $this->backupDir;
 		}
+		if ($this->excludeFile !== null) {
+			$options .= ' --exclude-from=' . $this->excludeFile;
+		}
+		
 		$this->setOptions($options);
 		
 		$options .= ' ' . $this->sourceDir . ' ' . $this->destinationDir;
