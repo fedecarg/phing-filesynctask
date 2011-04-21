@@ -137,6 +137,12 @@ class FileSyncTask extends Task
      * @var string
      */
     protected $identityFile;
+
+     /**
+     * Alternate remote SSH Port. (default is 22)
+     * @var string
+     */
+    protected $sshPort;
     
     /**
      * Phing's main method. Wraps the executeCommand() method.
@@ -216,16 +222,23 @@ class FileSyncTask extends Task
         if ($this->options !== null) {
             $options = $this->options;
         }
-        if ($this->verbose === true) { 
-            $options .= 'v';
-        }
-        if ($this->identityFile !== null) {
-            $options .= ' -e "ssh -i '. $this->identityFile . '"';
-        } else {
-            if ($this->remoteShell !== null) {
-                $options .= ' -e ' . $this->remoteShell;
+        if($this->sshPort || $this->identityFile) {
+
+            $options .= ' -e "ssh';
+    
+            if ($this->sshPort !== null) {
+                $options .= ' -p '. $this->sshPort;
             }
-        }
+
+            if ($this->identityFile !== null) {
+                $options .= ' -i '. $this->identityFile;
+            }
+            $options .= '"';
+
+	    } else if ($this->remoteShell !== null) {
+            $options .= ' -e ' . $this->remoteShell;
+    	}
+
         if ($this->listOnly === true) {
             $options .= ' --list-only';
         } else {
@@ -404,7 +417,7 @@ class FileSyncTask extends Task
      */
     public function setRemoteShell($shell) 
     {
-        $this->remoteShell = $file;
+        $this->remoteShell = $shell;
     }
 
     /**
@@ -471,5 +484,15 @@ class FileSyncTask extends Task
     public function setIdentityFile($identity) 
     {
         $this->identityFile = $identity;
+    }
+
+    /**
+     * Set the remote SSH port
+     *
+     * @param string $port alternate port for remote ssh
+     */
+    public function setSshPort($port)
+    {
+        $this->sshPort = $port;
     }
 }
